@@ -10,7 +10,14 @@ public class FPSController : MonoBehaviour
     [SerializeField] float sprintSpeed = 8;
     [SerializeField] float crounchSpeed = 3;
     [SerializeField] float maxForce = 1; //Fuerza max de aceleración
-    [SerializeField] float sesitivity = 0.1f; //Sensibilidad para input
+    [SerializeField] float sensitivity = 0.1f; //Sensibilidad para input
+
+    [Header("Jump & Groundcheck")]
+    [SerializeField] float jumpForce = 5f;
+    [SerializeField] bool isGrounded;
+    [SerializeField] Transform groundCheck;
+    [SerializeField] float groundcheckRadius = 0.3f;
+    [SerializeField] LayerMask groundLayer;
 
     [Header("Player State Bools")]
     [SerializeField] bool isSprinting;
@@ -40,9 +47,54 @@ public class FPSController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        //GroundCheck
+        isGrounded = Physics.CheckSphere(groundCheck.position, groundcheckRadius, groundLayer);
+        //dibujar un rayo ficticio en escena para orientacion de la camara
+        Debug.DrawRay(camHolder.transform.position, camHolder.transform.forward * 100f, Color.red);
         
     }
+    private void FixedUpdate()
+    {
+        Movement();
+    }
 
+    private void LateUpdate()
+    {
+        CameraLook();    
+    }
+
+    void CameraLook()
+    {
+        //rotacion horizontal del cuerpo del PJ
+        transform.Rotate(Vector3.up * lookInput.x * sensitivity);
+        //Rotacion vertical (la camara la lleva)
+        lookRotation += (-lookInput.y * sensitivity);
+        lookRotation = Mathf.Clamp(lookRotation, -90, 90);
+        camHolder.transform.localEulerAngles = new Vector3(lookRotation, 0f, 0f);
+    }
+
+    void Movement()
+    {
+        Vector3 currentVelocity = rb.linearVelocity; //Ncesitamos calcular la velocidad del RB constantemente
+        Vector3 targetVelocity = new Vector3(MoveInput.x, 0, MoveInput.y); //Vel a alcanzar = la direccion que pulses
+        targetVelocity *= isCrouching ? crounchSpeed : (isSprinting ? sprintSpeed : speed);
+        
+        //Convertir direccion local en global
+        targetVelocity = transform.TransformDirection(targetVelocity);
+
+        //Calculo de velocidad, ACELERACION
+        Vector3 velocityChange = (targetVelocity - currentVelocity);
+        velocityChange = new Vector3 (velocityChange.x, 0f, velocityChange.z);
+        velocityChange = Vector3.ClampMagnitude(velocityChange, maxForce);
+
+        //Aplicar fuerza de movimiento / aceleracion
+        rb.AddForce(velocityChange, ForceMode.VelocityChange);
+    }
+
+    void jump()
+    {
+        if (isGrounded) rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+    }
     #region INPUT METHODS
     public void OnMove(InputAction.CallbackContext context)
     {
@@ -54,15 +106,20 @@ public class FPSController : MonoBehaviour
     }
     public void OnJump(InputAction.CallbackContext context)
     {
-
+        if (context.performed) jump();
     }
     public void OnCrouch(InputAction.CallbackContext context)
     {
-
+        if (context.performed)
+        {
+            isCrouching = !isCrouching;
+            //AÑADIR ANIM
+        }
     }
     public void OnSprint(InputAction.CallbackContext context)
     {
-
+        if (context.performed && !isCrouching) isSprinting = true;
+        if (context.canceled) isSprinting = false;
     }
     #endregion
 }
