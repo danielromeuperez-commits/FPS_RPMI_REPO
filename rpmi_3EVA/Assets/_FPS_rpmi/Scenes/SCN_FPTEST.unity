@@ -1262,6 +1262,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 422691635631540136, guid: e468477e7506a404dbf9391449cbf97b, type: 3}
+      propertyPath: deathVFX
+      value: 
+      objectReference: {fileID: 1757450577975139690, guid: 54a5d97c5658e114d885983f59bc24cf, type: 3}
     - target: {fileID: 887388650972338914, guid: e468477e7506a404dbf9391449cbf97b, type: 3}
       propertyPath: m_IsTrigger
       value: 0
