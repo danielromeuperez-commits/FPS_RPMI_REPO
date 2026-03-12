@@ -37,6 +37,14 @@ public class EnemyAIBase : MonoBehaviour
     float lastCheckTime; //Tiempo de chequeo previo de stuck
     Vector3 lastPosition; //posición del ultimo walkpoint
     #endregion
+
+    private void Awake()
+    {
+        target = GameObject.Find("Player").transform;
+        agent = GetComponent<NavMeshAgent>();
+        lastPosition = transform.position;
+        lastCheckTime = Time.time;
+    }
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -46,6 +54,86 @@ public class EnemyAIBase : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        EnemyStateUpdate();
+    }
+
+    void EnemyStateUpdate()
+    {
+        //Metodo que se encarga de gestionar el cambio de estados en el enemigo
+
+        //1- cambio de estado de los booleanos 
+        //Detectamos si los targets están en visión
+        Collider[] hits = Physics.OverlapSphere(transform.position, sightRange, targetLayer);
+        targetInSightRange = hits.Length > 0;
+        //Si estan en visión, detectamos si ataca
+        if (targetInSightRange)
+        {
+            float distance = Vector3.Distance(transform.position, target.position);
+            targetInAttackRange = distance <= attackRange;
+        }
+        else
+        {
+            targetInAttackRange = false;
+        }
+
+        //2- cambio de estados segun booleanos
+        if (!targetInSightRange && !targetInAttackRange)
+        {
+            Patrolling();
+        }
+        else if (targetInSightRange && !targetInAttackRange)
+        {
+            ChaseTarget();
+        }
+        else if (targetInSightRange && targetInAttackRange)
+        {
+            AttackTarget();
+        }
+    }
+
+    void Patrolling()
+    {
+        Debug.Log("ENEMIGO PATRULLANDO");
+    }
+    void ChaseTarget()
+    {
+        //Acción que le dice al agente que persiga al target
+        agent.SetDestination(target.position);
+    }
+    void AttackTarget()
+    {
+        //Accion que contiene la logica de ataque
+        //1- Hacer que el agente se quede quieto (Se persigue a si mismo)
+        agent.SetDestination(transform.position);
+        //2- Aplicar rotación suavizada para que el agente mire al target antes de atacar
+        Vector3 direction = (target.position - transform.position).normalized;
+        if (direction != Vector3.zero)
+        {
+            Quaternion lookRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRotation, agent.angularSpeed * Time.deltaTime);
+        }
+        //3- Se ataca (solo si no se está atacando)
+        if (!alreadyAttacked)
+        {
+            Rigidbody rb = Instantiate(projectile, shootPoint.position, Quaternion.identity).GetComponent<Rigidbody>();
+            rb.AddForce(transform.forward * shootSpeedZ, ForceMode.Impulse);
+            alreadyAttacked = true;
+            Invoke(nameof(ResetAttack), timeBetweenAttacks);
+        }
+    }
+
+    void ResetAttack()
+    {
+        alreadyAttacked = false;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (Application.isPlaying) return; //Si jugamos en BUILD no se ejecuta el resto del codigo
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, sightRange);
     }
 }
